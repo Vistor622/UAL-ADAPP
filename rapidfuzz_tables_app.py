@@ -1,15 +1,15 @@
 from rapidfuzz import process, fuzz
 import pyodbc
 
-def connect_to_azure_sql(server, database, username, password):
+def connect_to_mysql(server, database, username, password):
     connection_string = (
-        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+        f"DRIVER={{MySQL ODBC 9.4 ANSI Driver}};"
         f"SERVER={server};"
         f"DATABASE={database};"
         f"UID={username};"
         f"PWD={password};"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
+        #"Encrypt=yes;"
+        #"TrustServerCertificate=yes;"
     )
     return pyodbc.connect(connection_string)
 
@@ -68,13 +68,21 @@ def fuzzy_match(queryRecord, choices, score_cutoff=0):
 
 
 def execute_dynamic_matching(params_dict, score_cutoff=0):
-    conn = connect_to_azure_sql(
+    conn = connect_to_mysql(
         server=params_dict.get("server", ""),
         database=params_dict.get("database", ""),
         username=params_dict.get("username", ""),
         password=params_dict.get("password", "")
     )
     cursor = conn.cursor()
+
+    conn2 = connect_to_mysql(
+        server=params_dict.get("server2", ""),
+        database=params_dict.get("database2", ""),
+        username=params_dict.get("username2", ""),
+        password=params_dict.get("password2", "")
+    )
+    cursor2 = conn2.cursor()
 
     if 'src_dest_mappings' not in params_dict or not params_dict['src_dest_mappings']:
         raise ValueError("Debe proporcionar src_dest_mappings con columnas origen y destino")
@@ -90,12 +98,14 @@ def execute_dynamic_matching(params_dict, score_cutoff=0):
     src_columns = [col[0] for col in cursor.description]
     source_data = [dict(zip(src_columns, row)) for row in src_rows]
 
-    cursor.execute(sql_dest)
-    dest_rows = cursor.fetchall()
-    dest_columns = [col[0] for col in cursor.description]
+    cursor2.execute(sql_dest)
+    dest_rows = cursor2.fetchall()
+    dest_columns = [col[0] for col in cursor2.description]
     dest_data = [dict(zip(dest_columns, row)) for row in dest_rows]
 
     conn.close()
+    conn2.close()
+
 
     matching_records = []
 
@@ -120,17 +130,25 @@ def execute_dynamic_matching(params_dict, score_cutoff=0):
 
 
 params_dict = {
-    "server": "tu_server",
-    "database": "tu_database",
-    "username": "tu_usuario",
-    "password": "tu_contraseña",
+    #base de datos usuarios 
+    "server": "localhost",
+    "database": "dbo",
+    "username": "root",
+    "password": "1234",
+
+    #base de datos clientes  
+    "server2": "localhost",
+    "database2": "crm",
+    "username2": "root",
+    "password2": "1234",
+
     "sourceSchema": "dbo",
-    "sourceTable": "tabla_origen",
-    "destSchema": "dbo",
-    "destTable": "tabla_destino",
+    "sourceTable": "Usuarios",
+    "destSchema": "crm",
+    "destTable": "Clientes",
     "src_dest_mappings": {
-        "nombre": "first_name",
-        "Ciudad": "City"
+        "first_name": "nombre",
+        #"Ciudad": "City"
     }
 }
 
