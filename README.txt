@@ -12,3 +12,21 @@ las compara, limpia los datos mas rebundantes y al tener los mas similar los uti
 utiliza los parametros (params_dict(la cual es un diccionario donde inicializa cada variable de acuerdo al usuario en momento),
  score_cutoff=0(es el valor de semenjanza con formato numero)):
 y devuelve el diccionario a travez de matching_records
+
+//Actualizacion\\
+
+linea 115
+se realizaron los cambios solicitados para que la busqueda o mejor dicho los resultados sena solo los de 
+score sean mayor a 70 los cuales se agregaran a la lista final para filtrar los matches poco relevantes
+
+linea 69
+El uso de with garantiza que las conexiones a la base de datos se cierren automáticamente 
+al finalizar el bloque, mejorando la gestión de recursos y evitando fugas de conexión.
+
+linea 143
+Se pasa el valor 70 como parámetro para que el filtro de score se aplique desde el inicio, 
+haciendo el código más flexible y fácil de ajustar.
+
+resumen de las modificaciones
+Las modificaciones optimizan el manejo de conexiones y filtran los resultados para mostrar 
+solo los matches relevantes (score > 70). Esto mejora la eficiencia y la calidad de los resultados.
