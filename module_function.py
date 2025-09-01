@@ -1,6 +1,7 @@
 from rapidfuzz import process, fuzz
 import mysql.connector as mysql
 import pandas as pd
+import csv
 
 def dfDict(matching_records):
         while True:
@@ -13,6 +14,15 @@ def dfDict(matching_records):
                 return matching_records
             else:
                 print("Option incorrect, chose 0 or 1.")
+
+def csv_files(answer):
+    keys = answer[0].keys()  # Nombres de columnas
+
+    with open("prueba.csv", "w", newline="", encoding="utf-8") as f:
+        dict_writer = csv.DictWriter(f, fieldnames=keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(answer)
+
 
 def connectMysql(server, database, username, password):
     return mysql.connect(

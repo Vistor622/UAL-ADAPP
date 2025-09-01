@@ -20,5 +20,6 @@ params_dict = {
 
 resultados = mf.filter(params_dict, score_cutoff=70)
 show=mf.dfDict(resultados)
+mf.csv_files(resultados)
 
 print(show)
