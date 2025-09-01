@@ -1,6 +1,18 @@
 from rapidfuzz import process, fuzz
 import mysql.connector as mysql
+import pandas as pd
 
+def dfDict(matching_records):
+        while True:
+            num= int(input("¿you want the result in DataFrame (0) or as a Dictionary (1)?"))
+            if num == 0:
+                matchingDf= pd.DataFrame(matching_records)
+                return matchingDf
+            
+            elif num == 1 :
+                return matching_records
+            else:
+                print("Option incorrect, chose 0 or 1.")
 
 def connectMysql(server, database, username, password):
     return mysql.connect(
@@ -120,10 +132,12 @@ def filter(params_dict, score_cutoff=0):
             })
             matching_records.append(dict_query_records)
 
+
     # Cerrar conexiones
     cursor.close()
     conn.close()
     cursor2.close()
     conn2.close()
 
+  
     return matching_records
