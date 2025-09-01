@@ -1,6 +1,7 @@
 from rapidfuzz import process, fuzz
 import mysql.connector as mysql
 
+
 def connectMysql(server, database, username, password):
     return mysql.connect(
         host=server,

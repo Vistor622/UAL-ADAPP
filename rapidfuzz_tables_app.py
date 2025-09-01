@@ -1,4 +1,6 @@
 import module_function as mf
+import pandas as pd
+
 
 params_dict = {
     "server": "localhost",
@@ -19,4 +21,7 @@ params_dict = {
 }
 
 resultados = mf.filter(params_dict, score_cutoff=70)
-print(resultados)
+
+show = pd.DataFrame(resultados)
+
+print(show)
