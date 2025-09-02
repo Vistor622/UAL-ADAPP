@@ -2,6 +2,9 @@ from rapidfuzz import process, fuzz
 import mysql.connector as mysql
 import pandas as pd
 import csv
+import openpyxl
+import os
+
 
 def dfDict(matching_records):
         while True:
@@ -15,13 +18,91 @@ def dfDict(matching_records):
             else:
                 print("Option incorrect, chose 0 or 1.")
 
-def csv_files(answer):
-    keys = answer[0].keys()  # Nombres de columnas
 
-    with open("prueba.csv", "w", newline="", encoding="utf-8") as f:
-        dict_writer = csv.DictWriter(f, fieldnames=keys)
-        dict_writer.writeheader()
-        dict_writer.writerows(answer)
+
+
+
+def csv_files(answer):
+    i=input("¿Desea crear archivo csv? (y/n)")
+
+    if "y"==i.lower():
+        df= pd.DataFrame(answer)
+        name=input("Enter the file name: ")
+
+
+        while True:
+            num = input("How many rows do you want to export? (Enter = all): ")
+            if num == "0":
+                print("you cannot create empty file")
+            else:
+                break
+
+        if num.strip() == "":  # si presiona Enter
+            exportDf = df  # todas las filas
+        else:
+            exportDf = df.head(int(num))        
+
+
+        folder="file_csv"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        file = os.path.join(folder,f"{name}.csv")
+
+
+        keys = exportDf.columns  # Nombres de columnas
+        with open(file, "w", newline="", encoding="utf-8") as f:
+            dict_writer = csv.DictWriter(f, fieldnames=keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(exportDf.to_dict(orient="records"))
+            print(f"file '{name}' has been exported successfully!")
+            
+
+    elif "n" == i.lower():
+        return
+    else:
+            
+            print("Error, please select one of the two options (y/n).")
+
+
+
+
+
+def excel(answer):
+        i=input("Do you want to export to Excel? (y/n): ")
+
+        if "y"==i.lower():
+            df= pd.DataFrame(answer)
+
+            name=input("Enter the file name: ")
+
+            while True:
+                num = input("How many rows do you want to export? (Enter = all): ")
+                if num == "0":
+                    print("you cannot create empty file")
+                else:
+                    break
+
+            if num.strip() == "":  # si presiona Enter
+                exportDf = df  # todas las filas
+            else:
+                exportDf = df.head(int(num))
+
+            #crea carpeta si no existe
+            folder = "file_excel"
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+
+            file = os.path.join(folder,f"{name}.xlsx",) #se ubica la ruta donde se guardara
+            exportDf.to_excel(f"{file}",index=False)    #se crea la exportacion de excel (aqui entra openpyxl)
+            print(f"file '{name}' has been exported successfully!")
+        
+        elif "n" == i.lower():
+            return
+        else:
+            print("Error, please select one of the two options (y/n).")
+
+    
 
 
 def connectMysql(server, database, username, password):
@@ -31,6 +112,8 @@ def connectMysql(server, database, username, password):
         user=username,
         password=password
     )
+
+
 
 def equality(queryRecord, choices, score_cutoff=0):
     scorers = [fuzz.WRatio, fuzz.QRatio, fuzz.token_set_ratio, fuzz.ratio]

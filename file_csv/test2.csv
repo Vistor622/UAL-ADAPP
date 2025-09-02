@@ -1,0 +1,4 @@
+first_name,match_query,match_result,score,match_result_values,destTable,sourceTable
+David,David,David,100.0,{'nombre': 'David'},Clientes,Usuarios
+Robert,Robert,Roberto,92.3076923076923,{'nombre': 'Roberto'},Clientes,Usuarios
+Mary,Mary,Mary,100.0,{'nombre': 'Mary'},Clientes,Usuarios

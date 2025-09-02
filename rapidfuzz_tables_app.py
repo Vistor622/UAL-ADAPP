@@ -19,7 +19,9 @@ params_dict = {
 }
 
 resultados = mf.filter(params_dict, score_cutoff=70)
-show=mf.dfDict(resultados)
-mf.csv_files(resultados)
+show=mf.dfDict(resultados)#diccionario o dataframe0
+mf.csv_files(resultados)#cvs
+mf.excel(resultados)#excel
+
 
 print(show)
