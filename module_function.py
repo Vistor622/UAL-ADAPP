@@ -23,58 +23,28 @@ def dfDict(matching_records):
 
 
 def csv_files(answer):
-    i=input("¿Desea crear archivo csv? (y/n)")
-
-    if "y"==i.lower():
-        df= pd.DataFrame(answer)
-        name=input("Enter the file name: ")
-
-
-        while True:
-            num = input("How many rows do you want to export? (Enter = all): ")
-            if num == "0":
-                print("you cannot create empty file")
-            else:
-                break
-
-        if num.strip() == "":  # si presiona Enter
-            exportDf = df  # todas las filas
-        else:
-            exportDf = df.head(int(num))        
-
-
-        folder="file_csv"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-
-        file = os.path.join(folder,f"{name}.csv")
-
-
-        keys = exportDf.columns  # Nombres de columnas
-        with open(file, "w", newline="", encoding="utf-8") as f:
-            dict_writer = csv.DictWriter(f, fieldnames=keys)
-            dict_writer.writeheader()
-            dict_writer.writerows(exportDf.to_dict(orient="records"))
-            print(f"file '{name}' has been exported successfully!")
-            
-
-    elif "n" == i.lower():
-        return
-    else:
-            
-            print("Error, please select one of the two options (y/n).")
-
-
-
-
-
-def excel(answer):
-        i=input("Do you want to export to Excel? (y/n): ")
+    x=True
+    while x==True:
+        i=input("¿Desea crear archivo csv? (y/n)")
 
         if "y"==i.lower():
             df= pd.DataFrame(answer)
-
             name=input("Enter the file name: ")
+            colum=columns(df)
+
+
+
+            while True:
+                    newCol=input(f"you want rename the columns?(Y/N)")
+                    if "y"==newCol.lower():
+                        df,colum=renameCol(df,colum)
+                        break
+                    elif "n"==newCol.lower():
+                        break
+                    else:
+                        print("Error, please select one of the two options (y/n).")
+
+
 
             while True:
                 num = input("How many rows do you want to export? (Enter = all): ")
@@ -84,9 +54,70 @@ def excel(answer):
                     break
 
             if num.strip() == "":  # si presiona Enter
-                exportDf = df  # todas las filas
+                exportDf = df[colum]  # todas las filas
             else:
-                exportDf = df.head(int(num))
+                exportDf = df[colum].head(int(num))        
+
+
+            folder="file_csv"
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+
+            file = os.path.join(folder,f"{name}.csv")
+
+
+            keys = exportDf.columns  # Nombres de columnas
+            with open(file, "w", newline="", encoding="utf-8") as f:
+                dict_writer = csv.DictWriter(f, fieldnames=keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(exportDf.to_dict(orient="records"))
+                print(f"file '{name}' has been exported successfully!")
+                
+                x=False
+        elif "n" == i.lower():
+            return
+        else:    
+            print("Error, please select one of the two options (y/n).")
+
+
+
+
+
+def excel(answer):
+    x=True
+    while x==True:
+        i=input("Do you want to export to Excel? (y/n): ")
+
+
+        if "y"==i.lower():
+            df= pd.DataFrame(answer)
+
+            name=input("Enter the file name: ")
+            colum=columns(df)
+
+            while True:
+                newCol=input(f"you want rename the columns?(Y/N)")
+                if "y"==newCol.lower():
+                    df,colum=renameCol(df,colum)
+                    break
+                elif "n"==newCol.lower():
+                    break
+                else:
+                    print("Error, please select one of the two options (y/n).")
+
+
+
+            while True:
+                num = input("How many rows do you want to export? (Enter = all): ")
+                if num == "0":
+                    print("you cannot create empty file")
+                else:
+                    break
+
+            if num.strip() == "":  # si presiona Enter
+                exportDf = df[colum] # todas las filas
+            else:
+                exportDf = df[colum].head(int(num))
 
             #crea carpeta si no existe
             folder = "file_excel"
@@ -96,13 +127,59 @@ def excel(answer):
             file = os.path.join(folder,f"{name}.xlsx",) #se ubica la ruta donde se guardara
             exportDf.to_excel(f"{file}",index=False)    #se crea la exportacion de excel (aqui entra openpyxl)
             print(f"file '{name}' has been exported successfully!")
-        
+            x=False
         elif "n" == i.lower():
             return
         else:
             print("Error, please select one of the two options (y/n).")
 
-    
+def columns(df):
+    col_map = {
+            1: "first_name",
+            2: "match_query",
+            3: "match_result",
+            4: "match_result_values",
+            5: "destTable",
+            6: "sourceTable",
+           # 7: "score"
+        }
+    i=True
+    while i==True:
+        Columns=input("select the columns want your print, separet whit commas: first_name(1),match_query(2),match_result(3),match_result_values(4),destTable(5),sourceTable(6),(ENTER=all)")
+        if Columns.strip() == "":  
+                selected_columns = list(df.columns) #el punto columns es propiedad de pandas, regresa nombre de columnas
+                i=False
+        else:
+            selected_columns = []
+            for num in Columns.split(","):
+                num = num.strip()
+                if num.isdigit() and int(num) in col_map:
+                    selected_columns.append(col_map[int(num)])
+                    i=False
+        if not selected_columns:
+                print("No valid columns selected, exporting all by default.")
+                
+
+    #Columns=Columns+",7"
+    if "score" not in selected_columns:
+        selected_columns.append("score")
+    return selected_columns
+
+
+
+def renameCol(df, selectedColumns):
+    rename = {}
+    for col in selectedColumns:
+        newName = input(f"Enter new name for '{col}' (Enter = keep current name): ")
+        if newName.strip() != "":
+            rename[col] = newName  # renombrar columna
+    if rename:
+        df = df.rename(columns=rename)
+        selectedColumns = [rename.get(col,col) for col in selectedColumns]
+    return df,selectedColumns
+
+
+
 
 
 def connectMysql(server, database, username, password):
