@@ -29,6 +29,7 @@ def csv_files(answer):
 
         if "y"==i.lower():
             df= pd.DataFrame(answer)
+            df=changeFormat(df)
             name=input("Enter the file name: ")
             colum=columns(df)
 
@@ -91,6 +92,7 @@ def excel(answer):
 
         if "y"==i.lower():
             df= pd.DataFrame(answer)
+            df=changeFormat(df)
 
             name=input("Enter the file name: ")
             colum=columns(df)
@@ -133,9 +135,17 @@ def excel(answer):
         else:
             print("Error, please select one of the two options (y/n).")
 
+def changeFormat(df):
+    df["name_complet"] = df["first_name"] + " " + df["last_name"]
+    df = df.drop(columns=["first_name", "last_name"])
+    df["score"] = df["score"].astype(str) + "%"
+    return df
+
+
+
 def columns(df):
     col_map = {
-            1: "first_name",
+            1: "name_complet",
             2: "match_query",
             3: "match_result",
             4: "match_result_values",
@@ -145,7 +155,7 @@ def columns(df):
         }
     i=True
     while i==True:
-        Columns=input("select the columns want your print, separet whit commas: first_name(1),match_query(2),match_result(3),match_result_values(4),destTable(5),sourceTable(6),(ENTER=all)")
+        Columns=input("select the columns want your print, separet whit commas: name_complet(1),match_query(2),match_result(3),match_result_values(4),destTable(5),sourceTable(6),(ENTER=all)")
         if Columns.strip() == "":  
                 selected_columns = list(df.columns) #el punto columns es propiedad de pandas, regresa nombre de columnas
                 i=False

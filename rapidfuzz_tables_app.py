@@ -15,6 +15,7 @@ params_dict = {
     "destTable": "Clientes",
     "src_dest_mappings": {
         "first_name": "nombre",
+        "last_name":"apellido"
     }
 }
 
