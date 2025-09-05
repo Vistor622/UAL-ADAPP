@@ -30,3 +30,9 @@ haciendo el código más flexible y fácil de ajustar.
 resumen de las modificaciones
 Las modificaciones optimizan el manejo de conexiones y filtran los resultados para mostrar 
 solo los matches relevantes (score > 70). Esto mejora la eficiencia y la calidad de los resultados.
+
+Resumen de las actualizaciones 05/09/2025
+se implemento un stored procedure para poder tener una mejor optimizacion y que el codigo funcione de 
+manera mas rapida.
+se implemento el stored procedure a todas las funciones que insertaban datos para que el codigo funcionara 
+mejor y pudiera estar mejor organizado.

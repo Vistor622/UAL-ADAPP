@@ -357,70 +357,56 @@ def filter(params_dict, score_cutoff=0):
 
 
 def upload(params_dict):
-    df=None
-    res=1
+    df = None
+    res = 1
 
     while True:
-        x=input("you want upload file? (Y/N)")
-        if "y"==x.lower():
-            y=input("xlsx(1) or  csv(2)")
-           
+        x = input("you want upload file? (Y/N)")
+        if "y" == x.lower():
+            y = input("xlsx(1) or  csv(2)")
             while True:
-                data=input("Insert the full path of the file: ")
-                
+                data = input("Insert the full path of the file: ")
                 if not os.path.exists(data):
                     print(f"File '{data}' does not exist. Please check the path.")
                     continue
                 else:
                     break
-            
-            if "1"== y:    
+            if "1" == y:
                 df = pd.read_excel(data)
                 break
-
             elif "2" == y:
                 df = pd.read_csv(data)
                 break
-                
             else:
                 print("Error, please select one of the two options (1 or 2).")
-            
-            while len(df.columns) != len(set(df.columns)):#Si la longitud de ambas listas no coincide, significa que hay nombres repetidos y se entra al bucle.
+            while len(df.columns) != len(set(df.columns)):
                 print("Duplicate column names detected:")
-                dup_cols = [col for col in df.columns if list(df.columns).count(col) > 1]#Crea una lista dup_cols que contiene todos los nombres de columnas que se repiten más de una vez.
-                print(dup_cols) 
+                dup_cols = [col for col in df.columns if list(df.columns).count(col) > 1]
+                print(dup_cols)
                 print("Please provide new names for the duplicates.")
-                
                 for col in dup_cols:
                     new_name = input(f"Enter a new name for duplicate column '{col}': ")
                     if new_name.strip() != "":
-                        # Renombrar todas las ocurrencias duplicadas excepto la primera
-                        occurrences = [i for i, c in enumerate(df.columns) if c == col] #Encuentra todas las posiciones (índices) en df.columns donde aparece el nombre duplicado.
+                        occurrences = [i for i, c in enumerate(df.columns) if c == col]
                         for idx in occurrences[1:]:
                             df.columns.values[idx] = new_name
                 print("Columns renamed, checking again...")
-            
-            break  # archivo cargado y columnas únicas
-
-            
-
+            break
         elif "n" == x.lower():
-            res=0
+            res = 0
             break
         else:
             print("Error, please select one of the two options (y/n).")
             continue
 
-    
     try:
         conn = connectMysql(
             server=params_dict.get("server", ""),
             database=params_dict.get("database", ""),
             username=params_dict.get("username", ""),
             password=params_dict.get("password", "")
-        ) 
+        )
         cursor = conn.cursor()
-
 
         table_name = "Import"
 
@@ -446,18 +432,10 @@ def upload(params_dict):
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     {col_defs}
                 )
-            """)
+            """ )
 
-
-        # Insertar datos desde DataFrame
-        cols_sql = ", ".join([f"`{c}`" for c in df.columns])
-        vals_sql = ", ".join(["%s"] * len(df.columns))
-        for _, fila in df.iterrows():
-            cursor.execute(
-                f"INSERT INTO {table_name} ({cols_sql}) VALUES ({vals_sql})",
-                tuple(fila[c] for c in df.columns)
-            )
-        conn.commit()
+        # Insertar datos usando el procedimiento almacenado
+        sp_BulkInsertImport_file_mysql_27177(df, conn)
         print("Datos insertados correctamente.")
         return res
 
@@ -468,4 +446,15 @@ def upload(params_dict):
         if conn.is_connected():
             cursor.close()
             conn.close()
+
+def sp_BulkInsertImport_file_mysql_27177(df, conn):
+    col_names = ",".join([f"`{col}`" for col in df.columns])
+    values = ",".join(
+        [f"({','.join([repr(str(val)) for val in row])})" for row in df.values]
+    )
+    cursor = conn.cursor()
+    cursor.callproc('sp_BulkInsertImport_file_mysql_27177', [col_names, values])
+    conn.commit()
+    cursor.close()
+
 
