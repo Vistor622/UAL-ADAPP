@@ -1,0 +1,10 @@
+name_complet,match_query,match_result,score,match_result_values,destTable,sourceTable
+April Gonzalez,AprilGonzalez,AprilGonzalez,100.0%,"{'nombre': 'April', 'apellido': 'Gonzalez'}",Clientes,Usuarios
+Colton Collins,ColtonCollins,ColtonCollins,100.0%,"{'nombre': 'Colton', 'apellido': 'Collins'}",Clientes,Usuarios
+Joseph Yang,JosephYang,JosephYang,100.0%,"{'nombre': 'Joseph', 'apellido': 'Yang'}",Clientes,Usuarios
+Michelle Logan,MichelleLogan,MichelleLogan,100.0%,"{'nombre': 'Michelle', 'apellido': 'Logan'}",Clientes,Usuarios
+Mary Pollard,MaryPollard,MaryPollard,100.0%,"{'nombre': 'Mary', 'apellido': 'Pollard'}",Clientes,Usuarios
+Gail Harris,GailHarris,GailHarris,100.0%,"{'nombre': 'Gail', 'apellido': 'Harris'}",Clientes,Usuarios
+Lauren Fletcher,LaurenFletcher,LaurenFletcher,100.0%,"{'nombre': 'Lauren', 'apellido': 'Fletcher'}",Clientes,Usuarios
+Alan Liu,AlanLiu,AlanLiu,100.0%,"{'nombre': 'Alan', 'apellido': 'Liu'}",Clientes,Usuarios
+Douglas Williams,DouglasWilliams,DouglasWilliams,100.0%,"{'nombre': 'Douglas', 'apellido': 'Williams'}",Clientes,Usuarios

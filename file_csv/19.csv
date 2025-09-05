@@ -1,0 +1,20 @@
+match_query,match_result,score,match_result_values,destTable,sourceTable,name_complet
+AprilGonzalez,AprilGonzalez,100.0%,"{'nombre': 'April', 'apellido': 'Gonzalez'}",Clientes,Usuarios,April Gonzalez
+ColtonCollins,ColtonCollins,100.0%,"{'nombre': 'Colton', 'apellido': 'Collins'}",Clientes,Usuarios,Colton Collins
+JosephYang,JosephYang,100.0%,"{'nombre': 'Joseph', 'apellido': 'Yang'}",Clientes,Usuarios,Joseph Yang
+MichelleLogan,MichelleLogan,100.0%,"{'nombre': 'Michelle', 'apellido': 'Logan'}",Clientes,Usuarios,Michelle Logan
+MaryPollard,MaryPollard,100.0%,"{'nombre': 'Mary', 'apellido': 'Pollard'}",Clientes,Usuarios,Mary Pollard
+GailHarris,GailHarris,100.0%,"{'nombre': 'Gail', 'apellido': 'Harris'}",Clientes,Usuarios,Gail Harris
+LaurenFletcher,LaurenFletcher,100.0%,"{'nombre': 'Lauren', 'apellido': 'Fletcher'}",Clientes,Usuarios,Lauren Fletcher
+AlanLiu,AlanLiu,100.0%,"{'nombre': 'Alan', 'apellido': 'Liu'}",Clientes,Usuarios,Alan Liu
+DouglasWilliams,DouglasWilliams,100.0%,"{'nombre': 'Douglas', 'apellido': 'Williams'}",Clientes,Usuarios,Douglas Williams
+DanielSmith,DanielSmith,100.0%,"{'nombre': 'Daniel', 'apellido': 'Smith'}",Clientes,Usuarios,Daniel Smith
+ChristopherJensen,ChristopherJensen,100.0%,"{'nombre': 'Christopher', 'apellido': 'Jensen'}",Clientes,Usuarios,Christopher Jensen
+HaleyRodriguez,HaleyRodriguez,100.0%,"{'nombre': 'Haley', 'apellido': 'Rodriguez'}",Clientes,Usuarios,Haley Rodriguez
+AlexisCox,AlexisCox,100.0%,"{'nombre': 'Alexis', 'apellido': 'Cox'}",Clientes,Usuarios,Alexis Cox
+DeborahDavis,DeborahDavis,100.0%,"{'nombre': 'Deborah', 'apellido': 'Davis'}",Clientes,Usuarios,Deborah Davis
+BrendaReynolds,BrendaReynolds,100.0%,"{'nombre': 'Brenda', 'apellido': 'Reynolds'}",Clientes,Usuarios,Brenda Reynolds
+PaulNash,PaulNash,100.0%,"{'nombre': 'Paul', 'apellido': 'Nash'}",Clientes,Usuarios,Paul Nash
+StevenParsons,StevenParsons,100.0%,"{'nombre': 'Steven', 'apellido': 'Parsons'}",Clientes,Usuarios,Steven Parsons
+AdrianRichards,AdrianRichards,100.0%,"{'nombre': 'Adrian', 'apellido': 'Richards'}",Clientes,Usuarios,Adrian Richards
+KristinHall,KristinHall,100.0%,"{'nombre': 'Kristin', 'apellido': 'Hall'}",Clientes,Usuarios,Kristin Hall

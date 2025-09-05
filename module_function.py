@@ -51,13 +51,20 @@ def csv_files(answer):
                 num = input("How many rows do you want to export? (Enter = all): ")
                 if num == "0":
                     print("you cannot create empty file")
-                else:
-                    break
+                    continue
 
-            if num.strip() == "":  # si presiona Enter
-                exportDf = df[colum]  # todas las filas
-            else:
-                exportDf = df[colum].head(int(num))        
+                if num.strip() == "":  # si presiona Enter
+                    exportDf = df[colum]  # todas las filas
+                    break
+                try:
+                    num_int = int(num)
+                    if num_int <= 0:
+                        continue
+                    exportDf = df[colum].head(int(num)) 
+                    break   
+                            
+                except ValueError:
+                    print("Please enter a valid number.")
 
 
             folder="file_csv"
@@ -113,13 +120,20 @@ def excel(answer):
                 num = input("How many rows do you want to export? (Enter = all): ")
                 if num == "0":
                     print("you cannot create empty file")
-                else:
+                    continue
+            
+                if num.strip() == "":  # si presiona Enter
+                    exportDf = df[colum] # todas las filas
                     break
+                try:
+                    num_int = int(num)
+                    if num_int <= 0:
+                        continue
+                    exportDf = df[colum].head(int(num)) 
+                    break  
 
-            if num.strip() == "":  # si presiona Enter
-                exportDf = df[colum] # todas las filas
-            else:
-                exportDf = df[colum].head(int(num))
+                except ValueError:
+                    print("Please enter a valid number.")
 
             #crea carpeta si no existe
             folder = "file_excel"
@@ -138,6 +152,11 @@ def excel(answer):
 def changeFormat(df):
     df["name_complet"] = df["first_name"] + " " + df["last_name"]
     df = df.drop(columns=["first_name", "last_name"])
+
+    cols = ["name_complet"] + [c for c in df.columns if c != "name_complet"]
+    df = df[cols]
+
+
     df["score"] = df["score"].astype(str) + "%"
     return df
 
@@ -256,6 +275,20 @@ def equality(queryRecord, choices, score_cutoff=0):
         }
     return best_match
 
+
+
+def recordHigh(fm,dict_query_records,matching_records,params_dict):
+         if fm['score'] >= 97:  # Solo agregar si el score es mayor a 97
+            dict_query_records.update(fm)
+            dict_query_records.update({
+                'destTable': params_dict['destTable'],
+                'sourceTable': params_dict['sourceTable']
+            })
+            matching_records.append(dict_query_records)
+
+
+
+
 def filter(params_dict, score_cutoff=0):
     conn = connectMysql(
         server=params_dict.get("server", ""),
@@ -304,15 +337,15 @@ def filter(params_dict, score_cutoff=0):
             dict_query_records[src_col] = val
 
         fm = equality(query, dest_data, score_cutoff)
-        if fm['score'] > 70:  # Solo agregar si el score es mayor a 70
-            dict_query_records.update(fm)
-            dict_query_records.update({
-                'destTable': params_dict['destTable'],
-                'sourceTable': params_dict['sourceTable']
-            })
-            matching_records.append(dict_query_records)
-
-
+        recordHigh(fm,dict_query_records,matching_records,params_dict)#remplazo
+    #    if fm['score'] = 70:  # Solo agregar si el score es mayor a 70
+    #         dict_query_records.update(fm)
+    #         dict_query_records.update({
+    #             'destTable': params_dict['destTable'],
+    #             'sourceTable': params_dict['sourceTable']
+    #         })
+    #         matching_records.append(dict_query_records)
+    
     # Cerrar conexiones
     cursor.close()
     conn.close()
@@ -321,3 +354,118 @@ def filter(params_dict, score_cutoff=0):
 
   
     return matching_records
+
+
+def upload(params_dict):
+    df=None
+    res=1
+
+    while True:
+        x=input("you want upload file? (Y/N)")
+        if "y"==x.lower():
+            y=input("xlsx(1) or  csv(2)")
+           
+            while True:
+                data=input("Insert the full path of the file: ")
+                
+                if not os.path.exists(data):
+                    print(f"File '{data}' does not exist. Please check the path.")
+                    continue
+                else:
+                    break
+            
+            if "1"== y:    
+                df = pd.read_excel(data)
+                break
+
+            elif "2" == y:
+                df = pd.read_csv(data)
+                break
+                
+            else:
+                print("Error, please select one of the two options (1 or 2).")
+            
+            while len(df.columns) != len(set(df.columns)):#Si la longitud de ambas listas no coincide, significa que hay nombres repetidos y se entra al bucle.
+                print("Duplicate column names detected:")
+                dup_cols = [col for col in df.columns if list(df.columns).count(col) > 1]#Crea una lista dup_cols que contiene todos los nombres de columnas que se repiten más de una vez.
+                print(dup_cols) 
+                print("Please provide new names for the duplicates.")
+                
+                for col in dup_cols:
+                    new_name = input(f"Enter a new name for duplicate column '{col}': ")
+                    if new_name.strip() != "":
+                        # Renombrar todas las ocurrencias duplicadas excepto la primera
+                        occurrences = [i for i, c in enumerate(df.columns) if c == col] #Encuentra todas las posiciones (índices) en df.columns donde aparece el nombre duplicado.
+                        for idx in occurrences[1:]:
+                            df.columns.values[idx] = new_name
+                print("Columns renamed, checking again...")
+            
+            break  # archivo cargado y columnas únicas
+
+            
+
+        elif "n" == x.lower():
+            res=0
+            break
+        else:
+            print("Error, please select one of the two options (y/n).")
+            continue
+
+    
+    try:
+        conn = connectMysql(
+            server=params_dict.get("server", ""),
+            database=params_dict.get("database", ""),
+            username=params_dict.get("username", ""),
+            password=params_dict.get("password", "")
+        ) 
+        cursor = conn.cursor()
+
+
+        table_name = "Import"
+
+        # Verificar si la tabla ya existe
+        cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+        result = cursor.fetchone()
+
+        if result:
+            # Tabla existe → obtener columnas actuales
+            cursor.execute(f"DESCRIBE {table_name}")
+            existing_cols = [col[0] for col in cursor.fetchall() if col[0] != 'id']
+            # Rellenar columnas faltantes
+            for col in existing_cols:
+                if col not in df.columns:
+                    df[col] = None
+            # Reordenar columnas según tabla
+            df = df[[col for col in existing_cols if col in df.columns]]
+        else:
+            # Tabla no existe → crear con las columnas del primer archivo
+            col_defs = ", ".join([f"`{col}` TEXT" for col in df.columns])
+            cursor.execute(f"""
+                CREATE TABLE {table_name} (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    {col_defs}
+                )
+            """)
+
+
+        # Insertar datos desde DataFrame
+        cols_sql = ", ".join([f"`{c}`" for c in df.columns])
+        vals_sql = ", ".join(["%s"] * len(df.columns))
+        for _, fila in df.iterrows():
+            cursor.execute(
+                f"INSERT INTO {table_name} ({cols_sql}) VALUES ({vals_sql})",
+                tuple(fila[c] for c in df.columns)
+            )
+        conn.commit()
+        print("Datos insertados correctamente.")
+        return res
+
+    except Exception as e:
+        print(e)
+
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+

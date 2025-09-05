@@ -18,11 +18,14 @@ params_dict = {
         "last_name":"apellido"
     }
 }
+res=1
 
 resultados = mf.filter(params_dict, score_cutoff=70)
 show=mf.dfDict(resultados)#diccionario o dataframe0
 mf.csv_files(resultados)#cvs
 mf.excel(resultados)#excel
+while res==1:
+    res=mf.upload(params_dict)
 
 
 print(show)
