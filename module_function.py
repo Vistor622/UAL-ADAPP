@@ -4,17 +4,60 @@ import pandas as pd
 import csv
 import openpyxl
 import os
+import json
 
 
-def dfDict(matching_records):
+def data(params_dict):
+    
+    # Conexión a la base de datos
+    conn = mysql.connect(
+        host=params_dict.get("server", ""),
+        database=params_dict.get("database", ""),  # dbo
+        user=params_dict.get("username", ""),
+        password=params_dict.get("password", "")
+    )
+    cursor = conn.cursor(dictionary=True)
+
+   # Llamada al stored procedure
+    cursor.callproc("sp_get_match_record_ori_dest_006")
+
+    # Recoger resultados del SP
+    rows = []
+    for result in cursor.stored_results():
+        rows.extend(result.fetchall())
+
+    cursor.close()
+    conn.close()
+
+    # Crear DataFrame
+    df = pd.DataFrame(rows)
+
+    # Preguntar al usuario cómo quiere el resultado
+    while True:
+        try:
+            num = int(input("¿you want the result in DataFrame (0) or as a Dictionary (1)? "))
+        except ValueError:
+            print("Option incorrect, chose 0 or 1.")
+            continue
+
+        if num == 0:
+            return df  # Devuelve el DataFrame
+        elif num == 1:
+            return df.to_dict(orient="records")  # Devuelve lista de diccionarios
+        else:
+            print("Option incorrect, chose 0 or 1.")
+
+
+
+def dfDict(df,name):
         while True:
-            num= int(input("¿you want the result in DataFrame (0) or as a Dictionary (1)?"))
+            num= int(input(f"¿you want the result of {name} in DataFrame (0) or as a Dictionary (1)?"))
             if num == 0:
-                matchingDf= pd.DataFrame(matching_records)
-                return matchingDf
+                return print(df)
             
             elif num == 1 :
-                return matching_records
+                dic=df.to_dict(orient="records")
+                return print(dic)
             else:
                 print("Option incorrect, chose 0 or 1.")
 
@@ -80,10 +123,10 @@ def csv_files(answer):
                 dict_writer.writeheader()
                 dict_writer.writerows(exportDf.to_dict(orient="records"))
                 print(f"file '{name}' has been exported successfully!")
-                
                 x=False
+                return exportDf,name
         elif "n" == i.lower():
-            return
+            return None,None
         else:    
             print("Error, please select one of the two options (y/n).")
 
@@ -143,9 +186,11 @@ def excel(answer):
             file = os.path.join(folder,f"{name}.xlsx",) #se ubica la ruta donde se guardara
             exportDf.to_excel(f"{file}",index=False)    #se crea la exportacion de excel (aqui entra openpyxl)
             print(f"file '{name}' has been exported successfully!")
+            #print(exportDf)
+            return exportDf,name
             x=False
         elif "n" == i.lower():
-            return
+            return None,None
         else:
             print("Error, please select one of the two options (y/n).")
 
@@ -278,7 +323,7 @@ def equality(queryRecord, choices, score_cutoff=0):
 
 
 def recordHigh(fm,dict_query_records,matching_records,params_dict):
-         if fm['score'] >= 97:  # Solo agregar si el score es mayor a 97
+         if fm['score'] >= 70:  # Solo agregar si el score es mayor a 70
             dict_query_records.update(fm)
             dict_query_records.update({
                 'destTable': params_dict['destTable'],
@@ -286,6 +331,23 @@ def recordHigh(fm,dict_query_records,matching_records,params_dict):
             })
             matching_records.append(dict_query_records)
 
+def recordHigh97(fm, dict_query_records, params_dict, conn):
+    if fm['score'] >= 97:
+        cursor = conn.cursor()
+        cursor.callproc(
+            "sp_insert_scored_006",
+            [
+                dict_query_records.get("first_name"),
+                dict_query_records.get("last_name"),
+                fm.get("match_query"),
+                fm.get("match_result"),
+                fm.get("score"),
+                params_dict["destTable"],
+                params_dict["sourceTable"]
+            ]
+        )
+        conn.commit()
+        cursor.close()
 
 
 
@@ -312,18 +374,21 @@ def filter(params_dict, score_cutoff=0):
     src_cols = ", ".join(params_dict['src_dest_mappings'].keys())
     dest_cols = ", ".join(params_dict['src_dest_mappings'].values())
 
-    sql_source = f"SELECT {src_cols} FROM {params_dict['sourceSchema']}.{params_dict['sourceTable']}"
-    sql_dest   = f"SELECT {dest_cols} FROM {params_dict['destSchema']}.{params_dict['destTable']}"
+    #sql_source = f"SELECT {src_cols} FROM {params_dict['sourceSchema']}.{params_dict['sourceTable']}"
+    #sql_dest   = f"SELECT {dest_cols} FROM {params_dict['destSchema']}.{params_dict['destTable']}"
 
-    cursor.execute(sql_source)
-    src_rows = cursor.fetchall()
-    src_columns = [col[0] for col in cursor.description]
+    cursor.callproc("sp_getTable_mysql_data_001", [params_dict['sourceSchema'], params_dict['sourceTable'], src_cols])
+    for result in cursor.stored_results():
+        src_rows = result.fetchall()
+        src_columns = [col[0] for col in result.description]
     source_data = [dict(zip(src_columns, row)) for row in src_rows]
 
-    cursor2.execute(sql_dest)
-    dest_rows = cursor2.fetchall()
-    dest_columns = [col[0] for col in cursor2.description]
+    cursor2.callproc("sp_getTable_mysql_data_001", [params_dict['destSchema'], params_dict['destTable'], dest_cols])
+    for result in cursor2.stored_results():
+        dest_rows = result.fetchall()
+        dest_columns = [col[0] for col in result.description]
     dest_data = [dict(zip(dest_columns, row)) for row in dest_rows]
+
 
     matching_records = []
 
@@ -338,6 +403,7 @@ def filter(params_dict, score_cutoff=0):
 
         fm = equality(query, dest_data, score_cutoff)
         recordHigh(fm,dict_query_records,matching_records,params_dict)#remplazo
+        recordHigh97(fm, dict_query_records, params_dict, conn)
     #    if fm['score'] = 70:  # Solo agregar si el score es mayor a 70
     #         dict_query_records.update(fm)
     #         dict_query_records.update({
@@ -347,6 +413,29 @@ def filter(params_dict, score_cutoff=0):
     #         matching_records.append(dict_query_records)
     
     # Cerrar conexiones
+
+    insert_cursor = conn.cursor()
+    for match in matching_records:
+        insert_cursor.callproc(
+            "sp_insert_matching_result_ori_dest_005fen",
+            [
+                match.get('first_name'),
+                match.get('last_name'),
+                match.get('match_query'),
+                match.get('match_result'),
+                match.get('score'),
+                json.dumps(match.get('match_result_values')),  # dict → JSON
+                params_dict['destTable'],
+                params_dict['sourceTable']
+            ]
+        )
+    conn.commit()
+    insert_cursor.close()
+
+    #for match in matching_records:
+    #    print(match)
+
+
     cursor.close()
     conn.close()
     cursor2.close()
@@ -356,8 +445,7 @@ def filter(params_dict, score_cutoff=0):
     return matching_records
 
 
-def upload(params_dict):
-    df = None
+def upload(params_dict,df):
     res = 1
 
     while True:
@@ -394,7 +482,7 @@ def upload(params_dict):
             break
         elif "n" == x.lower():
             res = 0
-            break
+            return res,df
         else:
             print("Error, please select one of the two options (y/n).")
             continue
@@ -407,37 +495,16 @@ def upload(params_dict):
             password=params_dict.get("password", "")
         )
         cursor = conn.cursor()
+        #table_name = "Import"
+        col_defs = ", ".join([f"`{col}` TEXT" for col in df.columns])
 
-        table_name = "Import"
-
-        # Verificar si la tabla ya existe
-        cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
-        result = cursor.fetchone()
-
-        if result:
-            # Tabla existe → obtener columnas actuales
-            cursor.execute(f"DESCRIBE {table_name}")
-            existing_cols = [col[0] for col in cursor.fetchall() if col[0] != 'id']
-            # Rellenar columnas faltantes
-            for col in existing_cols:
-                if col not in df.columns:
-                    df[col] = None
-            # Reordenar columnas según tabla
-            df = df[[col for col in existing_cols if col in df.columns]]
-        else:
-            # Tabla no existe → crear con las columnas del primer archivo
-            col_defs = ", ".join([f"`{col}` TEXT" for col in df.columns])
-            cursor.execute(f"""
-                CREATE TABLE {table_name} (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    {col_defs}
-                )
-            """ )
-
+        # Llamada al SP que crea la tabla si no existe
+        cursor.callproc("sp_importTable_file_mysql_004", [col_defs])
+        conn.commit()
         # Insertar datos usando el procedimiento almacenado
         sp_BulkInsertImport_file_mysql_27177(df, conn)
         print("Datos insertados correctamente.")
-        return res
+        return res,df
 
     except Exception as e:
         print(e)
@@ -449,12 +516,21 @@ def upload(params_dict):
 
 def sp_BulkInsertImport_file_mysql_27177(df, conn):
     col_names = ",".join([f"`{col}`" for col in df.columns])
-    values = ",".join(
-        [f"({','.join([repr(str(val)) for val in row])})" for row in df.values]
-    )
+    values = []
+    for row in df.values:
+        row_vals = []
+        for val in row:
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                row_vals.append("NULL")  # si el valor es nulo
+            else:
+                safe_val = str(val).replace("'", "''")  # escapar comillas simples
+                row_vals.append(f"'{safe_val}'")
+        values.append(f"({','.join(row_vals)})")
+
+    col_values = ",".join(values)
+
     cursor = conn.cursor()
-    cursor.callproc('sp_BulkInsertImport_file_mysql_27177', [col_names, values])
+    cursor.callproc("sp_BulkInsertImport_file_mysql_27177", [col_names, col_values])
     conn.commit()
     cursor.close()
-
 
