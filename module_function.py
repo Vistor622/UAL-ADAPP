@@ -348,6 +348,7 @@ def recordHigh97(fm, dict_query_records, params_dict, conn):
         )
         conn.commit()
         cursor.close()
+    
 
 
 
@@ -429,6 +430,9 @@ def filter(params_dict, score_cutoff=0):
                 params_dict['sourceTable']
             ]
         )
+    control=get_new_control(params_dict)
+    print(f"has been successfully inserted into the database, control number:{control}")
+
     conn.commit()
     insert_cursor.close()
 
@@ -501,9 +505,12 @@ def upload(params_dict,df):
         # Llamada al SP que crea la tabla si no existe
         cursor.callproc("sp_importTable_file_mysql_004", [col_defs])
         conn.commit()
+
         # Insertar datos usando el procedimiento almacenado
         sp_BulkInsertImport_file_mysql_27177(df, conn)
-        print("Datos insertados correctamente.")
+        
+        control=get_new_control(params_dict)
+        print(f"has been successfully inserted into the database, control number:{control}")
         return res,df
 
     except Exception as e:
@@ -534,3 +541,38 @@ def sp_BulkInsertImport_file_mysql_27177(df, conn):
     conn.commit()
     cursor.close()
 
+
+def get_new_control(params_dict):
+    conn = None
+    cursor = None
+    try:
+        # Conexión a la base de datos dbo
+        conn = mysql.connect(
+            host=params_dict.get("server", ""),
+            database=params_dict.get("database", ""),  # dbo
+            user=params_dict.get("username", ""),
+            password=params_dict.get("password", "")
+        )
+        cursor = conn.cursor(dictionary=True)
+
+        # Llamada al stored procedure
+        cursor.callproc("sp_generate_controlNum")
+
+        # Recuperar el resultado del SELECT dentro del SP
+        for result in cursor.stored_results():
+            row = result.fetchone()
+            new_control = row["new_control"]
+
+        conn.commit()
+
+        return new_control
+
+    except Exception as e:
+        print("Error:", e)
+        return None
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
