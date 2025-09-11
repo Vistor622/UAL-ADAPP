@@ -259,8 +259,8 @@ def recordHigh97(fm, dict_query_records, params_dict, conn, table_name, lista_fi
             [
                 dict_query_records.get("first_name"),
                 dict_query_records.get("last_name"),
-                fm.get("match_query"),
-                fm.get("match_result"),
+                json.dumps(fm.get("match_query")),   
+                json.dumps(fm.get("match_result")),
                 fm.get("score"),
                 params_dict["destTable"],
                 params_dict["sourceTable"]
@@ -317,8 +317,8 @@ def filter(params_dict, score_cutoff=0):
             [
                 match.get('first_name'),
                 match.get('last_name'),
-                match.get('match_query'),
-                match.get('match_result'),
+                json.dumps(fm.get("match_query")),  
+                json.dumps(fm.get("match_result")),
                 match.get('score'),
                 json.dumps(match.get('match_result_values')),
                 params_dict['destTable'],
