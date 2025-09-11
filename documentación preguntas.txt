@@ -1,0 +1,31 @@
+1:how does the algorithm behave if there are typos in the last name?
+    dependiendo de la cantidad de errores, por cada error en un caracter baja la conincidencia, 
+    por lo que, si aun tienen una alta considencia que acepta el filtro correspondiendte lo va a acepta
+
+
+2:what if accents or special characters are missing?
+    dependiendo de la palabra que toma para comparar con otras, lo tomara como un caracter diferente y bajara el rango de conincidencia, 
+    en el caso de pérez vs perez, elegira pérez y el otro perez sera como otro nombre diferente 
+
+
+3:if two records get a very similar score, how should the algorithm decide which one is the best match?
+    eligue el primer valor que comparo
+
+4:what happens if the Name matched but the emailis very different?
+    se reduce el nivel de coincidencia, o en otras palabras, aunque el nombre sea el mismo, 
+    si en el correo u otra columna no hay coincidencia igual se tomara en cuenta
+
+5:what are the limitations of treating all columns whit the same importance?
+    si se usa para verificar o buscar el mismo usuario, posiblemente la coincidencia no sea real, ya que si coincide el correo al 100%
+    es muy probable que sea el mismo usuario pero si el nombre es diferente no lo tomara o si el correo es ligeramente diferente 
+    pero el mismo usuario lo tomara con coincidencia alta cuando lo mas probable es que sean diferentes 
+
+6:can you think of real situation where fuzzy matching might create problems if all columns are treated equally?
+    en un hospital obtienen sus datos gracias a que el seguro les manda los datos y los traspazan con el algoritmo, se registran 2 
+    pasientes que tienen el seguro ligado a su correo, juan perez y otro juan perez(2), el primero su correo fue juan@gmail.com y 
+    el otro fue juan1@gmail.com, pero despues de 2 años, juan perez cambio su correo a juanPz@gmail.com y lo notifico al seguro, 
+    y justamente el 11 de septiembre del 2022 los 2 van por diferentes causas, juan por un resfriado muy fuerte y juan(2) por necrosis en la 
+    pierna izquierda, pero por culpa del algoritmo identifico a juan con el correo de juan(2) confundiendo a la administradora y provocando que 
+    juan le amputaran la pierna izquierda y a juan(2) sufrio sepsis lo que provoco la muerte y una demanda al hospital por negligencia.
+
+

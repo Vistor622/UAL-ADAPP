@@ -16,6 +16,7 @@ params_dict = {
     "src_dest_mappings": {
         "first_name": "nombre",
         "last_name":"apellido"
+        #"email":"email"
     }
 } 
 res=1

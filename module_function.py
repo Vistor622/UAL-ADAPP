@@ -331,24 +331,31 @@ def recordHigh(fm,dict_query_records,matching_records,params_dict):
             })
             matching_records.append(dict_query_records)
 
-def recordHigh97(fm, dict_query_records, params_dict, conn):
-    if fm['score'] >= 97:
-        cursor = conn.cursor()
-        cursor.callproc(
-            "sp_insert_scored_006",
-            [
-                dict_query_records.get("first_name"),
-                dict_query_records.get("last_name"),
-                fm.get("match_query"),
-                fm.get("match_result"),
-                fm.get("score"),
-                params_dict["destTable"],
-                params_dict["sourceTable"]
-            ]
-        )
-        conn.commit()
-        cursor.close()
-    
+def recordHigh97(fm, dict_query_records, params_dict, conn, table_name,lista_filtrada):
+    if not lista_filtrada:
+        return
+
+    newControl = assign_control(params_dict, table_name)
+    cursor = conn.cursor()
+
+    for fm, dict_query_records in lista_filtrada:
+            cursor.callproc(
+                "sp_insert_scored_006",
+                [
+                    dict_query_records.get("first_name"),
+                    dict_query_records.get("last_name"),
+                    fm.get("match_query"),
+                    fm.get("match_result"),
+                    fm.get("score"),
+                    params_dict["destTable"],
+                    params_dict["sourceTable"]
+                ]
+            )
+            # Asigna el mismo control a todos los registros insertados
+            cursor.execute(f"UPDATE scored SET numeroControl = '{newControl}' WHERE id = LAST_INSERT_ID()")
+    print(f"has been successfully inserted into the table {table_name} of dbo database, control number:{newControl} ")
+    conn.commit()
+    cursor.close()
 
 
 
@@ -392,6 +399,7 @@ def filter(params_dict, score_cutoff=0):
 
 
     matching_records = []
+    lista_filtrada_97 = []
 
     for record in source_data:
         dict_query_records = {}
@@ -404,7 +412,14 @@ def filter(params_dict, score_cutoff=0):
 
         fm = equality(query, dest_data, score_cutoff)
         recordHigh(fm,dict_query_records,matching_records,params_dict)#remplazo
-        recordHigh97(fm, dict_query_records, params_dict, conn)
+
+        
+        if fm['score'] >= 97:
+            lista_filtrada_97.append((fm, dict_query_records))
+
+
+    table_name97="scored"
+    recordHigh97(fm, dict_query_records, params_dict, conn, table_name97,lista_filtrada_97)
     #    if fm['score'] = 70:  # Solo agregar si el score es mayor a 70
     #         dict_query_records.update(fm)
     #         dict_query_records.update({
@@ -430,8 +445,10 @@ def filter(params_dict, score_cutoff=0):
                 params_dict['sourceTable']
             ]
         )
-    control=get_new_control(params_dict)
-    print(f"has been successfully inserted into the database, control number:{control}")
+    table_name="match_record"
+    control= assign_control(params_dict, table_name)
+
+    print(f"has been successfully inserted into table {table_name} of dbo database, control number:{control}")
 
     conn.commit()
     insert_cursor.close()
@@ -499,7 +516,6 @@ def upload(params_dict,df):
             password=params_dict.get("password", "")
         )
         cursor = conn.cursor()
-        #table_name = "Import"
         col_defs = ", ".join([f"`{col}` TEXT" for col in df.columns])
 
         # Llamada al SP que crea la tabla si no existe
@@ -508,9 +524,10 @@ def upload(params_dict,df):
 
         # Insertar datos usando el procedimiento almacenado
         sp_BulkInsertImport_file_mysql_27177(df, conn)
-        
-        control=get_new_control(params_dict)
-        print(f"has been successfully inserted into the database, control number:{control}")
+        table_name="Import"
+        control= assign_control(params_dict, table_name)
+
+        print(f"has been successfully inserted into the table {table_name} of dbo database, control number:{control}")
         return res,df
 
     except Exception as e:
@@ -542,7 +559,8 @@ def sp_BulkInsertImport_file_mysql_27177(df, conn):
     cursor.close()
 
 
-def get_new_control(params_dict):
+"""def get_new_control(params_dict):
+
     conn = None
     cursor = None
     try:
@@ -564,6 +582,50 @@ def get_new_control(params_dict):
             new_control = row["new_control"]
 
         conn.commit()
+
+        return new_control
+
+    except Exception as e:
+        print("Error:", e)
+        return None
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+"""
+
+def assign_control(params_dict, table_name):
+    conn = None
+    cursor = None
+    try:
+        conn = mysql.connect(
+            host=params_dict.get("server", ""),
+            database=params_dict.get("database", ""),
+            user=params_dict.get("username", ""),
+            password=params_dict.get("password", "")
+        )
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(f"SELECT id FROM {table_name} ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        if not row:
+            print("No hay registros en la tabla.")
+            return None
+
+        record_id = row["id"]
+
+        # Llamar al SP
+        cursor.callproc("sp_assign_controlNum", [table_name, record_id])
+
+        # Commit de los cambios
+        conn.commit()
+
+        # Recuperar el resultado del SP
+        for result in cursor.stored_results():
+            row = result.fetchone()
+            new_control = row["numeroControl"]
 
         return new_control
 
