@@ -36,3 +36,55 @@ se implemento un stored procedure para poder tener una mejor optimizacion y que 
 manera mas rapida.
 se implemento el stored procedure a todas las funciones que insertaban datos para que el codigo funcionara 
 mejor y pudiera estar mejor organizado.
+
+
+
+sp_get_match_record_ori_dest_006
+→ Usado en la función data() para obtener registros de coincidencia.
+
+sp_insert_scored_006
+→ Usado en la función recordHigh97() para insertar registros con puntaje (scored).
+
+sp_getTable_mysql_data_001
+→ Usado en la función filter() dos veces:
+
+Para traer datos de la tabla source.
+
+Para traer datos de la tabla dest.
+
+sp_insert_matching_result_ori_dest_005fen
+→ Usado en la función filter() para insertar coincidencias encontradas.
+
+sp_importTable_file_mysql_004
+→ Usado en la función upload() para crear la tabla de importación.
+
+sp_BulkInsertImport_file_mysql_27177
+→ Usado en la función sp_BulkInsertImport_file_mysql_27177() para insertar masivamente los datos del archivo importado.
+
+sp_assign_controlNum
+→ Usado en la función assign_control() para asignar número de control a registros.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -5,13 +5,237 @@ import csv
 import openpyxl
 import os
 import json
+import keyboard
+import getpass
+import datetime
+import bcrypt
+
+
+def inicio_programa():
+    """
+    Inicio del programa: decide si continuar, hacer login o salir
+    """
+    while True:
+        accion = input("Desea ejecutar el programa? (Enter = sí / 'lb' = login db/ 'lf' = login file / 'no' = salir): ").strip().lower()
+        if accion == "":
+            print("✅ Continuando con el programa...")
+            return "continuar", None
+        
+        elif accion == "lb":
+            alt_a_pressed()
+            return "continuar", None
+        
+        elif accion == "lf":
+            modificar_config_pesos() 
+            return "continuar", None
+            
+        
+        elif accion == "no":
+            print("👋 Saliendo del programa...")
+            return "salir", None
+        else:
+            print("Opción no válida. Intenta de nuevo.")
+
+#funcion credenciales archivo
+def cargar_usuarios():
+    with open("usuarios.json", "r") as f:
+        return json.load(f)
+    
+def login_autorizado():
+    usuarios = cargar_usuarios()
+    intentos = 0
+    max_intentos = 3
+
+    while intentos < max_intentos:
+        username = input("Usuario: ").strip()
+        password = getpass.getpass("Contraseña: ").strip()
+
+        if username in usuarios and bcrypt.checkpw(password.encode(), usuarios[username].encode()):
+            print(f"✅ Acceso concedido a {username}")
+            return username
+        else:
+            intentos += 1
+            print(f"❌ Acceso denegado (Intento {intentos}/{max_intentos})")
+
+    print("⚠️ Has superado el número máximo de intentos.")
+    return None
+
+def modificar_config_pesos( archivo="config_pesos.json"):
+    user = login_autorizado()
+    if not user:
+        return False
+    # Cargar archivo actual
+    try:
+                first_name = int(input("Nuevo peso para first_name: "))
+                last_name = int(input("Nuevo peso para last_name: "))
+                email = int(input("Nuevo peso para email: "))
+    except ValueError:
+                print("Los valores deben ser números enteros.")
+                return "salir", None
+
+    nuevos_pesos = {
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "modified_by": "usuario_actual",  # puedes pedir usuario también
+                "fecha_modificacion": datetime.datetime.now().isoformat(),
+                "activo": 1
+            }
+
+    config = {
+        "first_name": nuevos_pesos.get("first_name", 2),
+        "last_name": nuevos_pesos.get("last_name", 3),
+        "email": nuevos_pesos.get("email", 5),
+        "modified_by": user,
+        "fecha_modificacion": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "activo": 1
+    }
+
+    # Sobrescribir archivo
+    with open(archivo, "w") as f:
+        json.dump(config, f, indent=4)
+
+    print(f"✅ Archivo {archivo} actualizado por {user}")
+    return True
+
+#funcion para las credeciales
+def alt_a_pressed():
+    print("🔑 Alt+A detected! Login required.")#ed
+    username = login_user()
+    if username:
+        print(f"✅ Logged in as {username}")
+        # Aquí puedes llamar a la función para editar/insertar en 'weigth'
+        try:
+            first_name = int(input("Enter first_name (0-99): "))
+            last_name = int(input("Enter last_name (0-99): "))
+            email = int(input("Enter email (0-99): "))
+        except ValueError:
+            print("Invalid input. Must be numbers between 0-99.")
+            return
+        if not all(0 <= val <= 99 for val in [first_name, last_name, email]):
+            print("Values must be between 0 and 99.")
+            return
+        insert_weigth(first_name, last_name, email, username)
+    else:
+        print("Access denied or exit requested.")
+
+
+
+
+def login_user():
+    attempts = 0
+    while attempts < 3:
+        username = input("Username: ")
+        if username.lower() == "exit":
+            print("Exiting...")
+            return None
+        password = getpass.getpass("Password: ")
+
+        try:
+            conn = mysql.connect(
+                host="localhost",
+                user="root",
+                password="1234",
+                database="user"
+            )
+            cursor = conn.cursor(dictionary=True)
+            cursor.callproc("sp_login_user", [username, password])
+            result = None
+            for r in cursor.stored_results():
+                result = r.fetchone()
+            cursor.close()
+            conn.close()
+
+            if result:
+                print(f"✅ Welcome {result['username']} (role: {result['rol']})")
+                return result['username']
+            else:
+                attempts += 1
+                print("❌ Incorrect username or password. Try again.")
+
+        except mysql.connector.Error as e:
+            print("Database error:", e)
+            return None
+
+    print("❌ Too many failed attempts.")
+    return None
+
+
+def insert_weigth(first_name, last_name, email, username):
+    try:
+        conn = mysql.connect(
+            host="localhost",
+            user="root",
+            password="1234",
+            database="user"
+        )
+        cursor = conn.cursor()
+        cursor.callproc("sp_insert_weight", [first_name, last_name, email, username])
+        conn.commit()
+        print(f"✅ Insert successful by {username}")
+        cursor.close()
+        conn.close()
+    except mysql.connector.Error as e:
+        print("Database error:", e)
 
 # Pesos para cada columna
-COLUMN_WEIGHTS = {
-    "first_name": 2,
-    "last_name": 3,
-    "email": 5
-}
+def columnWeights():
+    conn = mysql.connect(
+        host="localhost",
+        user="root",
+        password="1234",
+        database="user"
+    )
+    cursor = conn.cursor(dictionary=True)
+    cursor.callproc("sp_get_column_weights")
+    weights = {}
+    for result in cursor.stored_results():
+        row = result.fetchone()
+        if row:
+            # Tomamos solo las columnas que nos interesan
+            weights["first_name"] = row["first_name"]
+            weights["last_name"] = row["last_name"]
+            weights["email"] = row["email"]
+            weights["fecha_modificacion"] = row["fecha_modificacion"]
+    cursor.close()
+    conn.close()
+    return weights
+
+
+
+def cargar_config_pesos(file_path):
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+        print(f"❌ Archivo '{file_path}' no encontrado.")
+        return {}
+    except json.JSONDecodeError:
+        print(f"❌ Error leyendo '{file_path}', formato JSON inválido.")
+        return {}
+
+
+db_weights = columnWeights()
+file_weights = cargar_config_pesos("config_pesos.json")  # {"first_name": 12, "last_name": 22, "email": 28, "fecha_actualizacion": "2025-09-18 12:30:00"}
+
+db_date = db_weights.get("fecha_modificacion")
+file_date = file_weights.get("fecha_modificacion")
+
+if db_date and isinstance(db_date, str):
+    db_date = datetime.datetime.fromisoformat(db_date)
+
+if file_date and isinstance(file_date, str):
+    file_date = datetime.datetime.fromisoformat(file_date)
+
+if db_date > file_date:
+    COLUMN_WEIGHTS = db_weights
+    print("Se usan los pesos de la base de datos (más recientes).")
+else:
+    COLUMN_WEIGHTS = file_weights
+    print("Se usan los pesos del archivo de configuración (más recientes).")
+    
+print("gg",COLUMN_WEIGHTS) 
 
 def data(params_dict):
     conn = mysql.connect(
@@ -161,15 +385,20 @@ def changeFormat(df):
 def columns(df):
     col_map = {
         1: "name_complet",
-        2: "match_query",
-        3: "match_result",
-        4: "match_result_values",
-        5: "destTable",
-        6: "sourceTable",
+        2: "email",  # <-- agregamos email aquí
+        3: "match_query",
+        4: "match_result",
+        5: "match_result_values",
+        6: "destTable",
+        7: "sourceTable",
     }
     i = True
     while i:
-        Columns = input("select the columns want your print, separet whit commas: name_complet(1),match_query(2),match_result(3),match_result_values(4),destTable(5),sourceTable(6),(ENTER=all)")
+        Columns = input(
+            "select the columns you want to print, separate with commas: "
+            "name_complet(1), email(2), match_query(3), match_result(4), "
+            "match_result_values(5), destTable(6), sourceTable(7) (ENTER=all)"
+        )
         if Columns.strip() == "":
             selected_columns = list(df.columns)
             i = False
@@ -259,14 +488,15 @@ def recordHigh97(fm, dict_query_records, params_dict, conn, table_name, lista_fi
             [
                 dict_query_records.get("first_name"),
                 dict_query_records.get("last_name"),
-                json.dumps(fm.get("match_query")),   
-                json.dumps(fm.get("match_result")),
+                dict_query_records.get("email"), 
+                json.dumps(fm.get("match_query")),    # convertir a string
+                json.dumps(fm.get("match_result")),   
                 fm.get("score"),
                 params_dict["destTable"],
                 params_dict["sourceTable"]
             ]
         )
-        cursor.execute(f"UPDATE scored SET numeroControl = '{newControl}' WHERE id = LAST_INSERT_ID()")
+    cursor.callproc("sp_update_last_scored_control", [newControl])
     print(f"has been successfully inserted into the table {table_name} of dbo database, control number:{newControl} ")
     conn.commit()
     cursor.close()
@@ -299,9 +529,11 @@ def filter(params_dict, score_cutoff=0):
     for result in cursor2.stored_results():
         dest_rows = result.fetchall()
         dest_columns = [col[0] for col in result.description]
+
     dest_data = [dict(zip(dest_columns, row)) for row in dest_rows]
     matching_records = []
     lista_filtrada_97 = []
+    
     for record in source_data:
         dict_query_records = {src_col: record.get(src_col) for src_col in params_dict['src_dest_mappings'].keys()}
         fm = weighted_fuzzy_match(record, dest_data, params_dict['src_dest_mappings'], score_cutoff)
@@ -310,6 +542,9 @@ def filter(params_dict, score_cutoff=0):
             lista_filtrada_97.append((fm, dict_query_records))
     table_name97 = "scored"
     recordHigh97(fm, dict_query_records, params_dict, conn, table_name97, lista_filtrada_97)
+
+    newControl = assign_control(params_dict, table_name97) 
+
     insert_cursor = conn.cursor()
     for match in matching_records:
         insert_cursor.callproc(
@@ -317,17 +552,19 @@ def filter(params_dict, score_cutoff=0):
             [
                 match.get('first_name'),
                 match.get('last_name'),
-                json.dumps(fm.get("match_query")),  
-                json.dumps(fm.get("match_result")),
+                dict_query_records.get("email"), 
+                json.dumps(fm.get("match_query")),    # convertir a string
+                json.dumps(fm.get("match_result")),   
                 match.get('score'),
                 json.dumps(match.get('match_result_values')),
                 params_dict['destTable'],
-                params_dict['sourceTable']
+                params_dict['sourceTable'],
+                newControl
             ]
         )
     table_name = "match_record"
-    control = assign_control(params_dict, table_name)
-    print(f"has been successfully inserted into table {table_name} of dbo database, control number:{control}")
+    #control = assign_control(params_dict, table_name)
+    print(f"has been successfully inserted into table {table_name} of dbo database, control number:{newControl}")
     conn.commit()
     insert_cursor.close()
     cursor.close()
@@ -338,25 +575,36 @@ def filter(params_dict, score_cutoff=0):
 
 def upload(params_dict, df):
     res = 1
+    df_result = df
     while True:
         x = input("you want upload file? (Y/N)")
         if "y" == x.lower():
             y = input("xlsx(1) or  csv(2)")
-            while True:
-                data = input("Insert the full path of the file: ")
-                if not os.path.exists(data):
-                    print(f"File '{data}' does not exist. Please check the path.")
-                    continue
-                else:
-                    break
+
+
             if "1" == y:
+                while True:
+                    data = input("Insert the full path of the file: ")
+                    if not os.path.exists(data):
+                        print(f"File '{data}' does not exist. Please check the path.")
+                        continue
+                    else:
+                        break
                 df = pd.read_excel(data)
                 break
             elif "2" == y:
+                while True:
+                    data = input("Insert the full path of the file: ")
+                    if not os.path.exists(data):
+                        print(f"File '{data}' does not exist. Please check the path.")
+                        continue
+                    else:
+                        break
                 df = pd.read_csv(data)
                 break
             else:
                 print("Error, please select one of the two options (1 or 2).")
+                return res, df
             while len(df.columns) != len(set(df.columns)):
                 print("Duplicate column names detected:")
                 dup_cols = [col for col in df.columns if list(df.columns).count(col) > 1]
@@ -387,10 +635,18 @@ def upload(params_dict, df):
         col_defs = ", ".join([f"`{col}` TEXT" for col in df.columns])
         cursor.callproc("sp_importTable_file_mysql_004", [col_defs])
         conn.commit()
-        sp_BulkInsertImport_file_mysql_27177(df, conn)
+
+        table_cols = get_table_columns(conn, "Import")  # función que obtiene columnas de la tabla
+        df = df[[c for c in df.columns if c in table_cols]]  # solo columnas válidas
+
         table_name = "Import"
         control = assign_control(params_dict, table_name)
+        df["numeroControl"] = control
+
+        sp_BulkInsertImport_file_mysql_27177(df, conn)
+        
         print(f"has been successfully inserted into the table {table_name} of dbo database, control number:{control}")
+        
         return res, df
     except Exception as e:
         print(e)
@@ -398,24 +654,44 @@ def upload(params_dict, df):
         if conn.is_connected():
             cursor.close()
             conn.close()
+        return res, df_result
+    
+def get_table_columns(conn, table_name):
+    cursor = conn.cursor()
+    cursor.callproc("sp_get_table_columns", [table_name])
+    cols = []
+    for result in cursor.stored_results():
+        cols.extend([row[0] for row in result.fetchall()])
+    cursor.close()
+    return cols
+
+
 
 def sp_BulkInsertImport_file_mysql_27177(df, conn):
-    col_names = ",".join([f"`{col}`" for col in df.columns])
-    values = []
+    cursor = conn.cursor()
+
+    # Columnas separadas por comas
+    col_names = ",".join(df.columns)
+
+    # Valores, convirtiendo NaN a NULL
+    values_list = []
     for row in df.values:
         row_vals = []
         for val in row:
-            if val is None or (isinstance(val, float) and pd.isna(val)):
+            if pd.isna(val):
                 row_vals.append("NULL")
             else:
                 safe_val = str(val).replace("'", "''")
                 row_vals.append(f"'{safe_val}'")
-        values.append(f"({','.join(row_vals)})")
-    col_values = ",".join(values)
-    cursor = conn.cursor()
+        values_list.append(f"({','.join(row_vals)})")
+    col_values = ",".join(values_list)
+
+    # Llamar al SP
     cursor.callproc("sp_BulkInsertImport_file_mysql_27177", [col_names, col_values])
     conn.commit()
     cursor.close()
+
+
 
 def assign_control(params_dict, table_name):
     conn = None
@@ -428,12 +704,17 @@ def assign_control(params_dict, table_name):
             password=params_dict.get("password", "")
         )
         cursor = conn.cursor(dictionary=True)
-        cursor.execute(f"SELECT id FROM {table_name} ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
+        cursor.callproc("sp_get_last_id", [table_name])
+        record_id = None
+        for result in cursor.stored_results():
+            row = result.fetchone()
+            if row:
+                record_id = row["id"]
+                
         if not row:
             print("No hay registros en la tabla.")
             return None
-        record_id = row["id"]
+        
         cursor.callproc("sp_assign_controlNum", [table_name, record_id])
         conn.commit()
         for result in cursor.stored_results():

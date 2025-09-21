@@ -1,5 +1,13 @@
 import module_function as mf
 
+accion, usuario = mf.inicio_programa()
+if accion == "salir":
+    exit()
+
+# Registramos la hotkey Alt+A
+#mf.keyboard.add_hotkey('alt+a', mf.alt_a_pressed)
+
+
 params_dict = {
     "server": "localhost",
     "database": "dbo",
@@ -32,6 +40,7 @@ df = None
 
 while res == 1:
     res, df = mf.upload(params_dict, df)
+
 
 #if dfC is not None:
 #    name=nameC+".csv"
