@@ -1,4 +1,4 @@
-from rapidfuzz import process, fuzz
+from rapidfuzz import fuzz
 import mysql.connector as mysql
 import pandas as pd
 import csv
@@ -16,17 +16,27 @@ def inicio_programa():
     Inicio del programa: decide si continuar, hacer login o salir
     """
     while True:
-        accion = input("Desea ejecutar el programa? (Enter = sí / 'lb' = login db/ 'lf' = login file / 'no' = salir): ").strip().lower()
+        accion = input("Desea ejecutar el programa? (Enter = sí / 'lb' = login db/ 'lf' = login file / 'h'=historial /'no' = salir): ").strip().lower()
         if accion == "":
             print("✅ Continuando con el programa...")
             return "continuar", None
         
         elif accion == "lb":
-            alt_a_pressed()
+            bol,pesos,columnas,nuevo,user,password=alt_a_pressed()
+            print("TODOS LOS REGISTROS:")
+            print("TODOS LOS REGISTROS:", columnas,pesos)
+            if bol == True:
+                guardar_historial(columnas,pesos,nuevo,user,password)
             return "continuar", None
         
         elif accion == "lf":
-            modificar_config_pesos() 
+            bol,pesos,columnas,nuevo,user,password=modificar_config_pesos() 
+            if bol == True:
+                guardar_historial(columnas,pesos,nuevo,user,password)
+            return "continuar", None
+        
+        elif accion == "h":
+            #consultar_historial()
             return "continuar", None
             
         
@@ -52,26 +62,70 @@ def login_autorizado():
 
         if username in usuarios and bcrypt.checkpw(password.encode(), usuarios[username].encode()):
             print(f"✅ Acceso concedido a {username}")
-            return username
+            return username,password
         else:
             intentos += 1
             print(f"❌ Acceso denegado (Intento {intentos}/{max_intentos})")
 
     print("⚠️ Has superado el número máximo de intentos.")
-    return None
+    return None,None
+
+def pedir_peso(campo):
+        while True:
+            try:
+                valor = int(input(f"Nuevo peso para {campo} (1-99): "))
+                if valor <= 0:
+                    print("El valor debe ser mayor que 0.")
+                elif valor > 99:
+                    print("El valor no puede ser mayor a 99.")
+                else:
+                    return valor
+            except ValueError:
+                print("Los valores deben ser números enteros.")
+
+
 
 def modificar_config_pesos( archivo="config_pesos.json"):
-    user = login_autorizado()
+    user,password = login_autorizado()
     if not user:
-        return False
+        return False,None,None,None,None,None
     # Cargar archivo actual
     try:
-                first_name = int(input("Nuevo peso para first_name: "))
-                last_name = int(input("Nuevo peso para last_name: "))
-                email = int(input("Nuevo peso para email: "))
+                use=latest()
+                columnas = ["first_name", "last_name", "email"]
+
+
+                if use is True:
+                    conn = mysql.connect(
+                        host="localhost",
+                        user="root",
+                        password="1234",
+                        database="user"
+                    )
+                    cur = conn.cursor(dictionary=True)
+                    cur.callproc("sp_get_latest_weights")
+                    
+                    for result in cur.stored_results():
+                        row = result.fetchone() 
+                        if row:
+                            pesos = {col: row[col] for col in columnas}  # 👈 solo valores como en el archivo
+
+
+                elif use is False:
+                    with open(archivo, "r") as f:
+                        config = json.load(f)
+    
+                    pesos = {col: config[col] for col in columnas if col in config}
+
+                first_name = pedir_peso("first_name")
+                last_name = pedir_peso("last_name")
+                email = pedir_peso("email")
     except ValueError:
                 print("Los valores deben ser números enteros.")
                 return "salir", None
+    except (FileNotFoundError, json.JSONDecodeError):
+                return "salir", None
+
 
     nuevos_pesos = {
                 "first_name": first_name,
@@ -96,16 +150,83 @@ def modificar_config_pesos( archivo="config_pesos.json"):
         json.dump(config, f, indent=4)
 
     print(f"✅ Archivo {archivo} actualizado por {user}")
-    return True
+    nuevo={"first_name":first_name,
+           "last_name":last_name,
+           "email":email}
+    return True,pesos,columnas,nuevo,user,password
+
+
+
+
+
+
+def guardar_historial(columnas, pesos_anteriores, pesos_nuevos, usu,passW):
+    conn = mysql.connect(
+            host="localhost",
+            database="user",
+            user="root",
+            password=passW
+        )
+    cursor = conn.cursor()
+
+    fecha_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for col in columnas:
+        cursor.execute(
+            """
+            INSERT INTO historial_pesos (columna, peso_anterior, peso_nuevo, fecha_hora)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (col, pesos_anteriores[col], pesos_nuevos[col], fecha_hora,)
+        )
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("✅ Historial actualizado en la base de datos.")
+
+
+
+
+
+
 
 #funcion para las credeciales
 def alt_a_pressed():
     print("🔑 Alt+A detected! Login required.")#ed
-    username = login_user()
+    username,passw = login_user()
+    pesos = {} 
     if username:
         print(f"✅ Logged in as {username}")
-        # Aquí puedes llamar a la función para editar/insertar en 'weigth'
+        
         try:
+            use,columnas=latest()
+            columnas = ["first_name", "last_name", "email"]
+            
+
+
+            if use is True:
+                conn = mysql.connect(
+                    host="localhost",
+                    user="root",
+                    password="1234",
+                    database="user"
+                )
+                cur = conn.cursor(dictionary=True)
+                cur.callproc("sp_get_latest_weights")
+                
+                for result in cur.stored_results():
+                        row = result.fetchone() 
+                        if row:
+                            pesos = {col: row[col] for col in columnas}  # 👈 solo valores como en el archivo
+
+
+            elif use is False:
+                with open("config_pesos.json", "r") as f:
+                    config = json.load(f)
+                pesos = {col: config[col] for col in columnas if col in config}
+
+
+
             first_name = int(input("Enter first_name (0-99): "))
             last_name = int(input("Enter last_name (0-99): "))
             email = int(input("Enter email (0-99): "))
@@ -116,9 +237,15 @@ def alt_a_pressed():
             print("Values must be between 0 and 99.")
             return
         insert_weigth(first_name, last_name, email, username)
+
+        nuevo={"first_name":first_name,
+           "last_name":last_name,
+           "email":email}
+        print(pesos)
+        return True,pesos,columnas,nuevo,username,passw
     else:
         print("Access denied or exit requested.")
-
+        return False,None,None,None,None,None
 
 
 
@@ -128,7 +255,7 @@ def login_user():
         username = input("Username: ")
         if username.lower() == "exit":
             print("Exiting...")
-            return None
+            return None,None
         password = getpass.getpass("Password: ")
 
         try:
@@ -148,17 +275,17 @@ def login_user():
 
             if result:
                 print(f"✅ Welcome {result['username']} (role: {result['rol']})")
-                return result['username']
+                return result['username'],password
             else:
                 attempts += 1
                 print("❌ Incorrect username or password. Try again.")
 
         except mysql.connector.Error as e:
             print("Database error:", e)
-            return None
+            return None,None
 
     print("❌ Too many failed attempts.")
-    return None
+    return None,None
 
 
 def insert_weigth(first_name, last_name, email, username):
@@ -214,28 +341,35 @@ def cargar_config_pesos(file_path):
     except json.JSONDecodeError:
         print(f"❌ Error leyendo '{file_path}', formato JSON inválido.")
         return {}
-
-
-db_weights = columnWeights()
-file_weights = cargar_config_pesos("config_pesos.json")  # {"first_name": 12, "last_name": 22, "email": 28, "fecha_actualizacion": "2025-09-18 12:30:00"}
-
-db_date = db_weights.get("fecha_modificacion")
-file_date = file_weights.get("fecha_modificacion")
-
-if db_date and isinstance(db_date, str):
-    db_date = datetime.datetime.fromisoformat(db_date)
-
-if file_date and isinstance(file_date, str):
-    file_date = datetime.datetime.fromisoformat(file_date)
-
-if db_date > file_date:
-    COLUMN_WEIGHTS = db_weights
-    print("Se usan los pesos de la base de datos (más recientes).")
-else:
-    COLUMN_WEIGHTS = file_weights
-    print("Se usan los pesos del archivo de configuración (más recientes).")
     
-print("gg",COLUMN_WEIGHTS) 
+
+def latest():
+    use=False
+    db_weights = columnWeights()
+    file_weights = cargar_config_pesos("config_pesos.json")  # {"first_name": 12, "last_name": 22, "email": 28, "fecha_actualizacion": "2025-09-18 12:30:00"}
+
+    db_date = db_weights.get("fecha_modificacion")
+    file_date = file_weights.get("fecha_modificacion")
+
+    if db_date and isinstance(db_date, str):
+        db_date = datetime.datetime.fromisoformat(db_date)
+
+    if file_date and isinstance(file_date, str):
+        file_date = datetime.datetime.fromisoformat(file_date)
+
+    if db_date > file_date:
+        COLUMN_WEIGHTS = db_weights
+        print("Se usan los pesos de la base de datos (más recientes).")
+        use=True
+    else:
+        COLUMN_WEIGHTS = file_weights
+        print("Se usan los pesos del archivo de configuración (más recientes).")
+        use=False
+        
+    print("gg",COLUMN_WEIGHTS) 
+    return use,COLUMN_WEIGHTS
+
+use,COLUMN_WEIGHTS=latest()
 
 def data(params_dict):
     conn = mysql.connect(
