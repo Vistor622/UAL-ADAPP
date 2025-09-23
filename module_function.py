@@ -9,6 +9,8 @@ import keyboard
 import getpass
 import datetime
 import bcrypt
+import re
+
 
 
 def inicio_programa():
@@ -23,8 +25,6 @@ def inicio_programa():
         
         elif accion == "lb":
             bol,pesos,columnas,nuevo,user,password=alt_a_pressed()
-            print("TODOS LOS REGISTROS:")
-            print("TODOS LOS REGISTROS:", columnas,pesos)
             if bol == True:
                 guardar_historial(columnas,pesos,nuevo,user,password)
             return "continuar", None
@@ -36,7 +36,9 @@ def inicio_programa():
             return "continuar", None
         
         elif accion == "h":
-            #consultar_historial()
+            bol,df = consultar_historial()
+            if bol==True:
+                df_filtrado = historial(df)
             return "continuar", None
             
         
@@ -91,7 +93,7 @@ def modificar_config_pesos( archivo="config_pesos.json"):
         return False,None,None,None,None,None
     # Cargar archivo actual
     try:
-                use=latest()
+                use,columnas=latest()
                 columnas = ["first_name", "last_name", "email"]
 
 
@@ -114,7 +116,6 @@ def modificar_config_pesos( archivo="config_pesos.json"):
                 elif use is False:
                     with open(archivo, "r") as f:
                         config = json.load(f)
-    
                     pesos = {col: config[col] for col in columnas if col in config}
 
                 first_name = pedir_peso("first_name")
@@ -126,6 +127,11 @@ def modificar_config_pesos( archivo="config_pesos.json"):
     except (FileNotFoundError, json.JSONDecodeError):
                 return "salir", None
 
+    new_weights = {"first_name": first_name, "last_name": last_name, "email": email}
+    fn,ln,em=impact(new_weights)
+    first_name=fn
+    last_name=ln
+    email=em
 
     nuevos_pesos = {
                 "first_name": first_name,
@@ -144,6 +150,7 @@ def modificar_config_pesos( archivo="config_pesos.json"):
         "fecha_modificacion": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "activo": 1
     }
+ 
 
     # Sobrescribir archivo
     with open(archivo, "w") as f:
@@ -180,9 +187,243 @@ def guardar_historial(columnas, pesos_anteriores, pesos_nuevos, usu,passW):
             (col, pesos_anteriores[col], pesos_nuevos[col], fecha_hora,)
         )
     conn.commit()
+
+    df = pd.DataFrame({
+        "columna": columnas,
+        "peso_anterior": [pesos_anteriores[col] for col in columnas],
+        "peso_nuevo": [pesos_nuevos[col] for col in columnas],
+        "fecha_hora": [fecha_hora] * len(columnas)
+    })
+
+
     cursor.close()
     conn.close()
-    print("✅ Historial actualizado en la base de datos.")
+    print("Historial actualizado en la base de datos.")
+    print(df)
+
+
+
+def consultar_historial():
+    username,passw = login_user()
+    if username:
+        print(f"✅ Logged in as {username}")
+        try:
+            conn = mysql.connect(
+                host="localhost",
+                user="root",
+                password=passw,
+                database="user"
+            )
+            df = pd.read_sql("SELECT * FROM historial_pesos", conn)
+            conn.close()
+            return True,df
+        except mysql.connector.Error as e:
+            print("Error en la base de datos:", e)
+            return False,pd.DataFrame()
+    else:
+        print("Access denied or exit requested.")
+        return False
+
+
+
+def historial(df):
+    
+    if df.empty:
+        print("No hay datos para mostrar.")
+        return df
+
+    col_map = {
+        1: "id",
+        2: "columna",
+        3: "peso_anterior",
+        4: "peso_nuevo",
+        5: "fecha_hora"
+    }
+
+    print("Columnas disponibles:")
+    for k, v in col_map.items():
+        print(f"{k}: {v}")
+
+    # --- SELECCIÓN DE COLUMNAS ---
+    while True:
+        col_input = input("Ingrese números de columna a mostrar separados por comas (Enter=todo): ").strip()
+        if not col_input:
+            cols_to_show = list(col_map.values())
+            break
+
+        try:
+            cols_to_show = []
+            for n in col_input.split(","):
+                n = n.strip()
+                if not n.isdigit() or int(n) not in col_map:
+                    raise ValueError(f"❌ Columna {n} no existe.")
+                cols_to_show.append(col_map[int(n)])
+            break
+        except Exception as e:
+            print(e)
+            print("⚠️ Intenta de nuevo con columnas válidas.")
+
+    df = df[cols_to_show]
+
+    # --- FILTRO DE FILAS ---
+    while True:
+        filtro_input = input("Ingrese filtros en formato (nº de columna) = valor,  separados por comas para mas filtros (Enter=sin filtro): ").strip()
+        if not filtro_input:
+            break
+
+        try:
+            
+            valido = True
+            for f in filtro_input.split(","):
+                f = f.strip()
+                match = re.match(r"(\d+)(=|>|<|~)(.+)", f)
+                if not match:
+                    print(f"⚠️ Filtro inválido: {f}. Use formato: num_columna=valor | num_columna>valor | num_columna<valor | num_columna~texto")
+                    valido = False
+                    break
+
+                num, op, val = match.groups()
+                num = int(num)
+                if num not in col_map:
+                    print(f"⚠️ Columna {num} no existe.")
+                    valido = False
+                    break
+
+            if valido:
+                for f in filtro_input.split(","):
+                    num, op, val = re.match(r"(\d+)(=|>|<|~)(.+)", f).groups()
+                    num = int(num)
+                    col = col_map[num]
+                    if op == "=":
+                        df = df[df[col].astype(str) == val.strip()]
+                    elif op == ">":
+                        df = df[pd.to_numeric(df[col], errors="coerce") > float(val)]
+                    elif op == "<":
+                        df = df[pd.to_numeric(df[col], errors="coerce") < float(val)]
+                    elif op == "~":
+                        df = df[df[col].astype(str).str.contains(val.strip(), case=False, na=False)]
+                break
+        except Exception as e:
+            print(e)
+            print("⚠️ Intenta de nuevo con filtros válidos.")
+
+    # --- ORDEN ---
+    while True:
+        orden = input("Ingrese números de columna para ordenar separados por comas (Enter=sin orden), agregar '- (numero de columna)' para descendente: ").strip()
+        if not orden:
+            break
+
+        try:
+            sort_cols = []
+            ascending_list = []
+            for col_num in orden.split(","):
+                col_num = col_num.strip()
+                if not col_num:
+                    continue
+                desc = False
+                if col_num.startswith("-"):
+                    desc = True
+                    col_num = col_num[1:].strip()
+                if not col_num.isdigit() or int(col_num) not in col_map:
+                    raise ValueError(f"❌ Columna {col_num} no existe para ordenar.")
+                sort_cols.append(col_map[int(col_num)])
+                ascending_list.append(not desc)
+            df = df.sort_values(by=sort_cols, ascending=ascending_list)
+            break
+        except Exception as e:
+            print(e)
+            print("⚠️ Intenta de nuevo con orden válido.")
+
+    print("\nHistorial filtrado/ordenado:")
+    print(df)
+    return df
+
+
+
+
+def impact(new_weights=None):
+    df_sample = pd.DataFrame([
+        {'first_name': 'Evelyn', 'last_name': 'fryda', 'email': 'user8@example.com'},
+        {"first_name": "Robert", "last_name": "Davis", "email": "user2@example.com"},
+        {"first_name": "Maryna", "last_name": "Wells", "email": "user3@example.com"},
+        {"first_name": "Brenda", "last_name": "Meyer", "email": "user5@example.com"},
+        {"first_name": "Yvonne", "last_name": "Jesen", "email": "user6@example.com"}
+        ])
+    
+    df_sample2 = pd.DataFrame([
+        {'first_name': 'Evelyn', 'last_name': 'fryda', 'email': 'user8@example.com'},
+        {"first_name": "Roberto", "last_name": "Daviz", "email": "user2@exampli.com"}, 
+        {"first_name": "Matina", "last_name": "Wils", "email": "user3@exonple.com"}, 
+        {"first_name": "Brinte", "last_name": "naier", "email": "user5@examion.com"}, 
+        {"first_name": "Yviclo", "last_name": "yazin", "email": "vist6@example.com"} 
+    ])
+
+    if new_weights is None:
+        new_weights = {"first_name": 1, "last_name": 1, "email": 1}
+
+    results = []
+    for idx, row in df_sample.iterrows():
+        best_score = 0
+        best_match = None
+        for _, dest_row in df_sample2.iterrows():
+            total_score = 0
+            total_weight = 0
+            for col in ["first_name", "last_name", "email"]:
+                score = fuzz.ratio(str(row[col]), str(dest_row[col]))
+                weight = new_weights.get(col, 1)
+                total_score += score * weight
+                total_weight += weight
+            weighted_score = total_score / total_weight if total_weight else 0
+            if weighted_score > best_score:
+                best_score = weighted_score
+                best_match = dest_row
+        results.append({
+            "query": row.to_dict(),
+            "match": best_match.to_dict(),
+            "weighted_score": round(best_score, 2)
+        })
+
+
+    df_results = pd.DataFrame(results)
+    print("\nSimulación de impacto con nuevos pesos:")
+    print(df_results[["query", "match", "weighted_score"]])
+
+    while True:
+        choice = input("¿Desea cambiar los pesos? (y/n): ").lower()
+        if choice == "y":
+            first_name = pedir_peso("first_name")
+            last_name = pedir_peso("last_name")
+            email = pedir_peso("email")
+            
+            new_weights = {
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email
+            }
+            
+            # recalculamos con los nuevos pesos
+            # aquí sí es recursión, pero controlada
+            return  impact(new_weights) # salimos para no seguir duplicando llamadas
+        elif choice == "n":
+            fn = new_weights["first_name"]
+            ln = new_weights["last_name"]
+            em = new_weights["email"]
+            break
+        else:
+            print("Opción no válida, ingrese y o n.")
+    return fn,ln,em
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -227,21 +468,27 @@ def alt_a_pressed():
 
 
 
-            first_name = int(input("Enter first_name (0-99): "))
-            last_name = int(input("Enter last_name (0-99): "))
-            email = int(input("Enter email (0-99): "))
+            first_name = pedir_peso("first_name")
+            last_name = pedir_peso("last_name")
+            email = pedir_peso("email")
         except ValueError:
             print("Invalid input. Must be numbers between 0-99.")
             return
         if not all(0 <= val <= 99 for val in [first_name, last_name, email]):
             print("Values must be between 0 and 99.")
             return
+        
+        new_weights = {"first_name": first_name, "last_name": last_name, "email": email}
+        fn,ln,em=impact(new_weights)
+        first_name=fn
+        last_name=ln
+        email=em
+
         insert_weigth(first_name, last_name, email, username)
 
         nuevo={"first_name":first_name,
            "last_name":last_name,
            "email":email}
-        print(pesos)
         return True,pesos,columnas,nuevo,username,passw
     else:
         print("Access denied or exit requested.")
@@ -370,6 +617,8 @@ def latest():
     return use,COLUMN_WEIGHTS
 
 use,COLUMN_WEIGHTS=latest()
+
+
 
 def data(params_dict):
     conn = mysql.connect(
