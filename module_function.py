@@ -433,7 +433,6 @@ def impact(new_weights=None):
 
 #funcion para las credeciales
 def alt_a_pressed():
-    print("🔑 Alt+A detected! Login required.")#ed
     username,passw = login_user()
     pesos = {} 
     if username:
@@ -613,7 +612,7 @@ def latest():
         print("Se usan los pesos del archivo de configuración (más recientes).")
         use=False
         
-    print("gg",COLUMN_WEIGHTS) 
+    print(COLUMN_WEIGHTS) 
     return use,COLUMN_WEIGHTS
 
 use,COLUMN_WEIGHTS=latest()
